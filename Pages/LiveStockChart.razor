@@ -1,0 +1,175 @@
+﻿@page "/live-stock-chart"
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@using System.Globalization
+@using System.Text.Json
+@using Syncfusion.Blazor
+@using Syncfusion.Blazor.Charts
+
+<h1>Live Stock Chart</h1>
+
+@if (isAuthenticated)
+{
+    <div class="stock-input-container">
+        <input type="text" @bind="stockSymbol" placeholder="Enter Stock Symbol" />
+        <button @onclick="() => LoadStockData(stockSymbol)">Load Stock Chart</button>
+    </div>
+
+    @if (isLoading)
+    {
+        <p>Loading data...</p>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-message">@errorMessage</div>
+    }
+    else if (stockData.Count > 0)
+    {
+        <SfStockChart Title="@($"{stockSymbol} Stock Price")" Width="100%" Height="400px">
+            <StockChartPrimaryXAxis>
+                <StockChartAxisMajorGridLines Width="0"></StockChartAxisMajorGridLines>
+                <StockChartAxisCrosshairTooltip Enable="true"></StockChartAxisCrosshairTooltip>
+            </StockChartPrimaryXAxis>
+            <StockChartPrimaryYAxis>
+                <StockChartAxisLineStyle Width="0"></StockChartAxisLineStyle>
+                <StockChartAxisMajorTickLines Width="0"></StockChartAxisMajorTickLines>
+            </StockChartPrimaryYAxis>
+            <StockChartTooltipSettings Enable="true"></StockChartTooltipSettings>
+            <StockChartCrosshairSettings Enable="true"></StockChartCrosshairSettings>
+            <StockChartSeriesCollection>
+                <StockChartSeries DataSource="@stockData" Type="ChartSeriesType.Candle" XName="Date" YName="Close"></StockChartSeries>
+            </StockChartSeriesCollection>
+            <StockChartChartArea>
+                <StockChartChartAreaBorder Width="0"></StockChartChartAreaBorder>
+            </StockChartChartArea>
+        </SfStockChart>
+    }
+    else
+    {
+        <p>No stock data available.</p>
+    }
+}
+else
+{
+    <p>Redirecting to login...</p>
+}
+
+@code {
+    private string stockSymbol = "AAPL"; // Default stock symbol
+    private List<StockData> stockData = new List<StockData>();
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private bool isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthenticated = AuthService.IsAuthenticated();
+
+        if (!isAuthenticated)
+        {
+            // Redirect to the login page if not authenticated
+            NavigationManager.NavigateTo("/auth");
+            return;
+        }
+
+        await LoadStockData(stockSymbol); // Load default stock data
+    }
+
+    private async Task LoadStockData(string symbol)
+    {
+        isLoading = true; // Set loading state
+        errorMessage = string.Empty; // Clear previous errors
+
+        try
+        {
+            string apiKey = "RHLZHHFX952LIDPI";
+            string url = $"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={symbol}&interval=5min&apikey={apiKey}";
+            var response = await Http.GetStringAsync(url);
+
+            // Deserialize JSON response
+            var result = JsonSerializer.Deserialize<JsonElement>(response);
+
+            // Check for API messages
+            if (result.TryGetProperty("Information", out var informationMessage))
+            {
+                errorMessage = informationMessage.GetString();
+                LoadDefaultStockData();
+                return;
+            }
+
+            if (result.TryGetProperty("Note", out var noteMessage))
+            {
+                errorMessage = noteMessage.GetString();
+                LoadDefaultStockData();
+                return;
+            }
+
+            // Extract stock data
+            if (result.TryGetProperty("Time Series (5min)", out var timeSeries))
+            {
+                var timeSeriesData = timeSeries.EnumerateObject();
+
+                stockData.Clear(); // Clear any previous data
+
+                foreach (var item in timeSeriesData)
+                {
+                    var date = DateTime.Parse(item.Name, CultureInfo.InvariantCulture);
+                    var data = item.Value;
+
+                    stockData.Add(new StockData
+                        {
+                            Date = date,
+                            Open = double.Parse(data.GetProperty("1. open").GetString() ?? "0", CultureInfo.InvariantCulture),
+                            High = double.Parse(data.GetProperty("2. high").GetString() ?? "0", CultureInfo.InvariantCulture),
+                            Low = double.Parse(data.GetProperty("3. low").GetString() ?? "0", CultureInfo.InvariantCulture),
+                            Close = double.Parse(data.GetProperty("4. close").GetString() ?? "0", CultureInfo.InvariantCulture),
+                            Volume = double.Parse(data.GetProperty("5. volume").GetString() ?? "0", CultureInfo.InvariantCulture)
+                        });
+                }
+
+                stockData = stockData.OrderBy(d => d.Date).ToList(); // Sort data by date for chart
+            }
+            else
+            {
+                errorMessage = "No stock data found.";
+                LoadDefaultStockData();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error fetching stock data: {ex.Message}";
+            LoadDefaultStockData();
+        }
+        finally
+        {
+            isLoading = false; // Reset loading state
+            StateHasChanged(); // Trigger UI update
+        }
+    }
+
+    private void LoadDefaultStockData()
+    {
+        stockData = new List<StockData>
+        {
+            new StockData { Date = DateTime.Now.AddDays(-4), Open = 150.00, High = 155.00, Low = 149.00, Close = 152.50, Volume = 1000000 },
+            new StockData { Date = DateTime.Now.AddDays(-3), Open = 152.50, High = 158.00, Low = 151.00, Close = 156.00, Volume = 1200000 },
+            new StockData { Date = DateTime.Now.AddDays(-2), Open = 156.00, High = 157.50, Low = 154.00, Close = 155.25, Volume = 900000 },
+            new StockData { Date = DateTime.Now.AddDays(-1), Open = 155.25, High = 160.00, Low = 154.50, Close = 158.00, Volume = 1100000 },
+            new StockData { Date = DateTime.Now, Open = 158.00, High = 162.00, Low = 157.00, Close = 159.50, Volume = 1300000 }
+        };
+
+        errorMessage = "Unable to retrieve live data. Displaying default stock chart.";
+        StateHasChanged(); // Trigger UI update
+    }
+
+    public class StockData
+    {
+        public DateTime Date { get; set; }
+        public double Open { get; set; }
+        public double Low { get; set; }
+        public double Close { get; set; }
+        public double High { get; set; }
+        public double Volume { get; set; }
+    }
+}

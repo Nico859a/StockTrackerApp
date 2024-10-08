@@ -1,0 +1,43 @@
+﻿@page "/register"
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager NavigationManager
+@inject AuthService AuthService
+
+<h3>Register</h3>
+
+<EditForm Model="@user" OnValidSubmit="HandleRegistration">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label for="username">Username:</label>
+        <InputText id="username" @bind-Value="user.Username" required />
+    </div>
+    <div>
+        <label for="password">Password:</label>
+        <InputText id="password" type="password" @bind-Value="user.Password" required />
+    </div>
+    <button type="submit">Register</button>
+</EditForm>
+
+@code {
+    private UserRegistration user = new UserRegistration();
+
+    private void HandleRegistration()
+    {
+        // Use AuthService to register the user
+        AuthService.Register(user.Username, user.Password);
+
+        // Navigate to login after successful registration
+        NavigationManager.NavigateTo("/login");
+    }
+
+    private class UserRegistration
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}

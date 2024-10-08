@@ -1,0 +1,318 @@
+﻿@page "/stocks"
+@inject HttpClient Http
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@using System.Text.Json
+
+<style>
+    :root {
+        --primary-color: #4a90e2; /* Modern blue */
+        --primary-hover-color: #357abd; /* Darker blue for hover */
+        --secondary-color: #f5f5f5; /* Light gray for backgrounds */
+        --accent-color: #e94e77; /* Soft pink for accents */
+        --text-color: #333; /* Dark gray for text */
+        --error-color: #e74c3c; /* Red for error messages */
+        --border-color: #d1d1d1; /* Light gray for borders */
+        --table-header-bg: #f9f9f9; /* Light background for table headers */
+        --positive-change-color: #2ecc71; /* Green for positive changes */
+        --negative-change-color: #e74c3c; /* Red for negative changes */
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--secondary-color);
+        color: var(--text-color);
+    }
+
+    .stock-input-container {
+        margin-bottom: 20px;
+    }
+
+        .stock-input-container input {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            width: calc(100% - 110px);
+            transition: border 0.3s ease;
+        }
+
+            .stock-input-container input:focus {
+                border-color: var(--primary-color);
+                outline: none;
+            }
+
+        .stock-input-container button {
+            padding: 12px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            .stock-input-container button:hover {
+                background-color: var(--primary-hover-color);
+            }
+
+    .suggestions-list {
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        max-height: 150px;
+        overflow-y: auto;
+        background-color: white;
+    }
+
+        .suggestions-list li {
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+            .suggestions-list li:hover {
+                background-color: var(--primary-color);
+                color: white;
+            }
+
+    .stock-quotes-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+        .stock-quotes-table th, .stock-quotes-table td {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .stock-quotes-table th {
+            background-color: var(--table-header-bg);
+            color: var(--text-color);
+        }
+
+    .positive-change {
+        color: var(--positive-change-color);
+    }
+
+    .negative-change {
+        color: var(--negative-change-color);
+    }
+
+    .error-message {
+        color: var(--error-color);
+        margin-top: 20px;
+    }
+</style>
+
+@if (isAuthenticated)
+{
+    <h3>Stock Quotes</h3>
+
+    <div>
+        <input type="text" @bind="stockSymbol" placeholder="Enter Stock Symbol" @oninput="SearchSymbol" />
+        <button @onclick="GetQuote">Get Quote</button>
+    </div>
+
+    @if (symbolSuggestions?.Count > 0)
+    {
+        <ul>
+            @foreach (var suggestion in symbolSuggestions)
+            {
+                <li @onclick="() => SelectSymbol(suggestion)">@suggestion["1. symbol"] - @suggestion["2. name"]</li>
+            }
+        </ul>
+    }
+
+    @if (quotes != null && quotes.Count > 0)
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Open</th>
+                    <th>High</th>
+                    <th>Low</th>
+                    <th>Price</th>
+                    <th>Previous Close</th>
+                    <th>Change</th>
+                    <th>Change Percent</th>
+                    <th>Volume</th>
+                    <th>Latest Trading Day</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var quote in quotes)
+                {
+                    <tr>
+                        <td>@quote["01. symbol"]</td>
+                        <td>@quote["02. open"]</td>
+                        <td>@quote["03. high"]</td>
+                        <td>@quote["04. low"]</td>
+                        <td>@quote["05. price"]</td>
+                        <td>@quote["08. previous close"]</td>
+                        <td class="@GetChangeClass(quote["09. change"])">@quote["09. change"]</td>
+                        <td class="@GetChangeClass(quote["10. change percent"])">@quote["10. change percent"]</td>
+                        <td>@quote["06. volume"]</td>
+                        <td>@quote["07. latest trading day"]</td>
+                        <td>
+                            <button @onclick="() => RemoveQuote(quote)">Remove</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <p style="color: red;">@errorMessage</p>
+    }
+
+    <button @onclick="SaveQuotes">Save Quotes</button>
+}
+else
+{
+    <p>Redirecting to login...</p>
+}
+
+@code {
+    private string stockSymbol = string.Empty;
+    private List<Dictionary<string, string>> quotes = new List<Dictionary<string, string>>();
+    private List<Dictionary<string, string>> symbolSuggestions = new List<Dictionary<string, string>>();
+    private string errorMessage = string.Empty;
+    private bool isAuthenticated;
+
+    protected override Task OnInitializedAsync()
+    {
+        isAuthenticated = AuthService.IsAuthenticated();
+
+        if (!isAuthenticated)
+        {
+            // Redirect to the login page if not authenticated
+            NavigationManager.NavigateTo("/auth");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task GetQuote()
+    {
+        if (string.IsNullOrEmpty(stockSymbol))
+        {
+            errorMessage = "Please enter a stock symbol.";
+            return;
+        }
+
+        try
+        {
+            string apiKey = "RHLZHHFX952LIDPI";
+            string url = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={stockSymbol}&apikey={apiKey}";
+
+            var response = await Http.GetFromJsonAsync<JsonElement>(url);
+
+            // Check for error responses like "Information" or "Note" in the response to see if API limit was reached
+            if (response.TryGetProperty("Information", out var informationMessage))
+            {
+                errorMessage = informationMessage.GetString();
+                return;
+            }
+            if (response.TryGetProperty("Note", out var noteMessage))
+            {
+                errorMessage = noteMessage.GetString();
+                return;
+            }
+
+            // Handle valid Global Quote response
+            if (response.TryGetProperty("Global Quote", out var globalQuote))
+            {
+                var quoteDict = JsonSerializer.Deserialize<Dictionary<string, string>>(globalQuote.GetRawText());
+
+                if (quoteDict != null)
+                {
+                    quotes.Add(quoteDict);
+                    errorMessage = string.Empty;
+                }
+            }
+            else
+            {
+                errorMessage = "No data found for the given stock symbol.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error fetching data: {ex.Message}";
+        }
+
+        stockSymbol = string.Empty;
+        symbolSuggestions.Clear(); // Clear suggestions after fetching the quote
+    }
+
+    private async Task SearchSymbol(ChangeEventArgs e)
+    {
+        string query = e.Value?.ToString() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(query))
+        {
+            symbolSuggestions.Clear();
+            return;
+        }
+
+        try
+        {
+            string apiKey = "RHLZHHFX952LIDPI";
+            string searchUrl = $"https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={query}&apikey={apiKey}";
+            var searchResponse = await Http.GetStringAsync(searchUrl);
+
+            var searchResult = JsonSerializer.Deserialize<Dictionary<string, object>>(searchResponse);
+
+            // Extract the 'bestMatches' from the search result and deserialize it into a list of dictionaries.
+            if (searchResult != null && searchResult.TryGetValue("bestMatches", out var bestMatches))
+            {
+                // Here, we cast bestMatches to JsonElement to handle it appropriately.
+                var bestMatchesElement = (JsonElement)bestMatches;
+
+                // Deserialize the JsonElement to a List of Dictionaries
+                symbolSuggestions = JsonSerializer.Deserialize<List<Dictionary<string, string>>>(bestMatchesElement.GetRawText());
+            }
+            else
+            {
+                symbolSuggestions.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error fetching symbol suggestions: {ex.Message}";
+        }
+    }
+
+    private void SelectSymbol(Dictionary<string, string> suggestion)
+    {
+        stockSymbol = suggestion["1. symbol"];
+        symbolSuggestions.Clear();
+    }
+
+    private void RemoveQuote(Dictionary<string, string> quote)
+    {
+        quotes.Remove(quote);
+    }
+
+    private void SaveQuotes()
+    {
+        // Implement saving logic, e.g., save to local storage or a backend service
+        // For now, just display a message
+        Console.WriteLine("Quotes saved!"); // Replace with your saving logic
+    }
+
+    private string GetChangeClass(string change)
+    {
+        if (decimal.TryParse(change, out var changeValue))
+        {
+            return changeValue >= 0 ? "positive-change" : "negative-change";
+        }
+        return string.Empty;
+    }
+}

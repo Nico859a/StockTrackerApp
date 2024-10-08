@@ -1,0 +1,165 @@
+﻿@namespace StockQuotesApp.Components
+@inject StockQuotesApp.Services.AlphaVantageService AlphaVantageService
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<h1>Major Stock Indices</h1>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="error-message">@errorMessage</div>
+}
+else if (stockIndices == null || stockIndices.Count == 0)
+{
+    <p>No data available.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Current Value</th>
+                <th>Change</th>
+                <th>Percent Change</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var index in stockIndices)
+            {
+                <tr>
+                    <td>@index.Name</td>
+                    <td>@index.CurrentValue</td>
+                    <td class="@GetChangeClass(index.Change)">@index.Change</td>
+                    <td class="@GetChangeClass(index.PercentChange)">@index.PercentChange%</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h2>Market Status</h2>
+@if (!string.IsNullOrEmpty(marketStatus))
+{
+    <p>Market Status: @marketStatus</p>
+}
+else if (!string.IsNullOrEmpty(marketErrorMessage))
+{
+    <p style="color: red;">@marketErrorMessage</p>
+}
+
+@code {
+    private List<StockIndex> stockIndices = new List<StockIndex>();
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+    private string marketStatus = string.Empty;
+    private string marketErrorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var symbols = new List<string> { "DIA", "QQQ", "SPY" }; // Example symbols for Dow Jones, NASDAQ, S&P 500
+        stockIndices = new List<StockIndex>();
+
+        try
+        {
+            foreach (var symbol in symbols)
+            {
+                var result = await AlphaVantageService.GetStockQuote(symbol);
+                if (result != null && result.TryGetValue("Global Quote", out var quoteData))
+                {
+                    var quote = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(quoteData?.ToString() ?? string.Empty);
+                    if (quote != null)
+                    {
+                        stockIndices.Add(new StockIndex
+                            {
+                                Name = symbol,
+                                CurrentValue = double.Parse(quote["05. price"]),
+                                Change = double.Parse(quote["09. change"]),
+                                PercentChange = double.Parse(quote["10. change percent"].TrimEnd('%'))
+                            });
+                    }
+                }
+                else if (result != null && result.TryGetValue("Note", out var note))
+                {
+                    errorMessage = $"API limit reached: {note}";
+                    Console.WriteLine(errorMessage);
+                    break;
+                }
+                else
+                {
+                    errorMessage = $"No data found for symbol: {symbol}";
+                    Console.WriteLine(errorMessage);
+                }
+            }
+
+            // get market status automatically
+            await GetMarketStatus();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error fetching data: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task GetMarketStatus()
+    {
+        try
+        {
+            string apiKey = "RHLZHHFX952LIDPI";
+            string url = $"https://www.alphavantage.co/query?function=MARKET_STATUS&apikey={apiKey}";
+
+            var response = await Http.GetFromJsonAsync<Dictionary<string, string>>(url);
+
+            if (response != null && response.ContainsKey("Market Status"))
+            {
+                marketStatus = response["Market Status"];
+                marketErrorMessage = string.Empty;
+            }
+            else
+            {
+                marketErrorMessage = "Could not retrieve market status.";
+            }
+        }
+        catch (Exception ex)
+        {
+            marketErrorMessage = $"Error fetching market status: {ex.Message}";
+        }
+    }
+
+    private string GetChangeClass(double change)
+    {
+        return change >= 0 ? "positive-change" : "negative-change";
+    }
+
+    private class StockIndex
+    {
+        public string Name { get; set; } = string.Empty;
+        public double CurrentValue { get; set; }
+        public double Change { get; set; }
+        public double PercentChange { get; set; }
+    }
+}
+
+<style>
+    .positive-change {
+        color: green;
+    }
+
+    .negative-change {
+        color: red;
+    }
+
+    .error-message {
+        color: red;
+        margin-top: 10px;
+    }
+</style>
