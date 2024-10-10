@@ -19,6 +19,7 @@ namespace StockTrackerApp
 
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
             builder.Services.AddScoped<AlphaVantageService>();
+            builder.Services.AddTelerikBlazor();
             builder.Services.AddScoped<AuthService>();
 
             builder.Services.AddOidcAuthentication(options =>

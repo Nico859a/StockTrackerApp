@@ -1,20 +1,22 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="sidebar">
-    <h1>Stock Tracking App</h1>
-    <nav>
-        <ul>
-            <li><a href="/">🏠 Home</a></li>
-            <li><a href="/auth">🔑 Login/Register</a></li>
-            <li><a href="/stocks">📈 Stock Quotes</a></li>
-            <li><a href="/live-stock-chart">📊 Live Stock Chart</a></li>
-        </ul>
-    </nav>
-</div>
+<TelerikRootComponent>
+    <div class="sidebar">
+        <h1>Stock Tracking App</h1>
+        <nav>
+            <ul>
+                <li><a href="/">🏠 Home</a></li>
+                <li><a href="/auth">🔑 Login/Register</a></li>
+                <li><a href="/stocks">📈 Stock Quotes</a></li>
+                <li><a href="/live-stock-chart">📊 Live Stock Chart</a></li>
+            </ul>
+        </nav>
+    </div>
 
-<div class="main">
-    @Body
-</div>
+    <div class="main">
+        @Body
+    </div>
+</TelerikRootComponent>
 
 <style>
     body {

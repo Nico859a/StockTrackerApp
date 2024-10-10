@@ -8,7 +8,7 @@ namespace StockQuotesApp.Services
     public class AlphaVantageService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _apiKey = "RHLZHHFX952LIDPI";
+        private readonly string _apiKey = "1A4N019EJ13QWZAM";
 
         public AlphaVantageService(HttpClient httpClient)
         {

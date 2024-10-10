@@ -181,8 +181,10 @@ else
 
 @code {
     private string stockSymbol = string.Empty;
+
     private List<Dictionary<string, string>> quotes = new List<Dictionary<string, string>>();
     private List<Dictionary<string, string>> symbolSuggestions = new List<Dictionary<string, string>>();
+
     private string errorMessage = string.Empty;
     private bool isAuthenticated;
 
@@ -209,7 +211,7 @@ else
 
         try
         {
-            string apiKey = "RHLZHHFX952LIDPI";
+            string apiKey = "1A4N019EJ13QWZAM";
             string url = $"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={stockSymbol}&apikey={apiKey}";
 
             var response = await Http.GetFromJsonAsync<JsonElement>(url);
@@ -263,7 +265,7 @@ else
 
         try
         {
-            string apiKey = "RHLZHHFX952LIDPI";
+            string apiKey = "1A4N019EJ13QWZAM";
             string searchUrl = $"https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={query}&apikey={apiKey}";
             var searchResponse = await Http.GetStringAsync(searchUrl);
 
@@ -302,7 +304,6 @@ else
 
     private void SaveQuotes()
     {
-        // Implement saving logic, e.g., save to local storage or a backend service
         // For now, just display a message
         Console.WriteLine("Quotes saved!"); // Replace with your saving logic
     }

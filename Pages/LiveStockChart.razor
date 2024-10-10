@@ -4,55 +4,60 @@
 @inject NavigationManager NavigationManager
 @using System.Globalization
 @using System.Text.Json
-@using Syncfusion.Blazor
-@using Syncfusion.Blazor.Charts
+@inherits LayoutComponentBase
 
 <h1>Live Stock Chart</h1>
 
-@if (isAuthenticated)
-{
-    <div class="stock-input-container">
-        <input type="text" @bind="stockSymbol" placeholder="Enter Stock Symbol" />
-        <button @onclick="() => LoadStockData(stockSymbol)">Load Stock Chart</button>
-    </div>
+<div class="stock-input-container">
+    <input type="text" @bind="stockSymbol" placeholder="Enter Stock Symbol" />
+    <button @onclick="() => LoadStockData(stockSymbol)">Load Stock Chart</button>
+</div>
 
-    @if (isLoading)
+@if (isLoading)
+{
+    <p>Loading data...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="error-message">@errorMessage</div>
+}
+else if (stockData.Count > 0)
+{
+    <button class="m-2 btn btn-primary">Apple CMP:137.13</button>
+    <button class="m-2 btn btn-danger">-5.51 (-3.86%)</button>
+
+    @if (stockData != null)
     {
-        <p>Loading data...</p>
-    }
-    else if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="error-message">@errorMessage</div>
-    }
-    else if (stockData.Count > 0)
-    {
-        <SfStockChart Title="@($"{stockSymbol} Stock Price")" Width="100%" Height="400px">
-            <StockChartPrimaryXAxis>
-                <StockChartAxisMajorGridLines Width="0"></StockChartAxisMajorGridLines>
-                <StockChartAxisCrosshairTooltip Enable="true"></StockChartAxisCrosshairTooltip>
-            </StockChartPrimaryXAxis>
-            <StockChartPrimaryYAxis>
-                <StockChartAxisLineStyle Width="0"></StockChartAxisLineStyle>
-                <StockChartAxisMajorTickLines Width="0"></StockChartAxisMajorTickLines>
-            </StockChartPrimaryYAxis>
-            <StockChartTooltipSettings Enable="true"></StockChartTooltipSettings>
-            <StockChartCrosshairSettings Enable="true"></StockChartCrosshairSettings>
-            <StockChartSeriesCollection>
-                <StockChartSeries DataSource="@stockData" Type="ChartSeriesType.Candle" XName="Date" YName="Close"></StockChartSeries>
-            </StockChartSeriesCollection>
-            <StockChartChartArea>
-                <StockChartChartAreaBorder Width="0"></StockChartChartAreaBorder>
-            </StockChartChartArea>
-        </SfStockChart>
-    }
-    else
-    {
-        <p>No stock data available.</p>
+        <TelerikChart Width="100%" Height="400px" Class="mt-3 border border-primary rounded">
+            <ChartTitle Text="AAPL"></ChartTitle>
+            <ChartTooltip Visible="true"></ChartTooltip>
+
+            <ChartSeriesItems>
+                <ChartSeries Type="Telerik.Blazor.ChartSeriesType.Candlestick"
+                             Data="@stockData"
+                             CategoryField="@nameof(StockData.Date)"
+                             OpenField="@nameof(StockData.Open)"
+                             CloseField="@nameof(StockData.Close)"
+                             HighField="@nameof(StockData.High)"
+                             LowField="@nameof(StockData.Low)"
+                             DownColor="salmon"
+                             Color="yellowgreen">
+                </ChartSeries>
+            </ChartSeriesItems>
+
+            <ChartCategoryAxes>
+                <ChartCategoryAxis Type="Telerik.Blazor.ChartCategoryAxisType.Date" BaseUnit="@ChartCategoryAxisBaseUnit.Months"></ChartCategoryAxis>
+            </ChartCategoryAxes>
+
+            <ChartValueAxes>
+                <ChartValueAxis Min="136" Max="170"></ChartValueAxis>
+            </ChartValueAxes>
+        </TelerikChart>
     }
 }
 else
 {
-    <p>Redirecting to login...</p>
+    <p>No stock data available.</p>
 }
 
 @code {
@@ -83,8 +88,8 @@ else
 
         try
         {
-            string apiKey = "RHLZHHFX952LIDPI";
-            string url = $"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={symbol}&interval=5min&apikey={apiKey}";
+            string apiKey = "1A4N019EJ13QWZAM";
+            string url = $"https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol={symbol}&apikey={apiKey}";
             var response = await Http.GetStringAsync(url);
 
             // Deserialize JSON response
@@ -114,7 +119,7 @@ else
 
                 foreach (var item in timeSeriesData)
                 {
-                    var date = DateTime.Parse(item.Name, CultureInfo.InvariantCulture);
+                    var date = DateTime.ParseExact(item.Name, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
                     var data = item.Value;
 
                     stockData.Add(new StockData

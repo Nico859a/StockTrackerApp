@@ -42,7 +42,7 @@ else
     </table>
 }
 
-<h2>Market Status</h2>
+@* <h2>Market Status</h2>
 @if (!string.IsNullOrEmpty(marketStatus))
 {
     <p>Market Status: @marketStatus</p>
@@ -50,7 +50,7 @@ else
 else if (!string.IsNullOrEmpty(marketErrorMessage))
 {
     <p style="color: red;">@marketErrorMessage</p>
-}
+} *@
 
 @code {
     private List<StockIndex> stockIndices = new List<StockIndex>();
@@ -97,7 +97,7 @@ else if (!string.IsNullOrEmpty(marketErrorMessage))
             }
 
             // get market status automatically
-            await GetMarketStatus();
+            // await GetMarketStatus();
         }
         catch (Exception ex)
         {
@@ -110,30 +110,30 @@ else if (!string.IsNullOrEmpty(marketErrorMessage))
         }
     }
 
-    private async Task GetMarketStatus()
-    {
-        try
-        {
-            string apiKey = "RHLZHHFX952LIDPI";
-            string url = $"https://www.alphavantage.co/query?function=MARKET_STATUS&apikey={apiKey}";
+    // private async Task GetMarketStatus()
+    // {
+    //     try
+    //     {
+    //         string apiKey = "1A4N019EJ13QWZAM";
+    //         string url = $"https://www.alphavantage.co/query?function=MARKET_STATUS&apikey={apiKey}";
 
-            var response = await Http.GetFromJsonAsync<Dictionary<string, string>>(url);
+    //         var response = await Http.GetFromJsonAsync<Dictionary<string, string>>(url);
 
-            if (response != null && response.ContainsKey("Market Status"))
-            {
-                marketStatus = response["Market Status"];
-                marketErrorMessage = string.Empty;
-            }
-            else
-            {
-                marketErrorMessage = "Could not retrieve market status.";
-            }
-        }
-        catch (Exception ex)
-        {
-            marketErrorMessage = $"Error fetching market status: {ex.Message}";
-        }
-    }
+    //         if (response != null && response.ContainsKey("Market Status"))
+    //         {
+    //             marketStatus = response["Market Status"];
+    //             marketErrorMessage = string.Empty;
+    //         }
+    //         else
+    //         {
+    //             marketErrorMessage = "Could not retrieve market status.";
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         marketErrorMessage = $"Error fetching market status: {ex.Message}";
+    //     }
+    // }
 
     private string GetChangeClass(double change)
     {
